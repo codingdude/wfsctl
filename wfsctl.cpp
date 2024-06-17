@@ -310,7 +310,7 @@ wfs_get_memory_region(int lba, int lbs, int count)
     }
 
     offset.QuadPart = wfs_lba_offset(lba, lbs);
-    size = wfs_lba_offset(count, lbs);
+    size = (SIZE_T) wfs_lba_offset(count, lbs);
     low = offset.LowPart;
     high = offset.HighPart;
 
@@ -419,8 +419,6 @@ wfs_enumerate_index_table(
     int lba, status;
     uint8_t *region, *ptr;
     wfs_descriptor_t desc;
-    bool repeat;
-    std::tm start, stop;
 
     if (wfs_validate_signature(superb) != WFS_OK)
     {
@@ -433,7 +431,7 @@ wfs_enumerate_index_table(
     {
         status = WFS_OK;
         lba += lba_cnt; ptr = region;
-        for (int desc_idx = 0; desc_idx < superb->last_recorded_desc; ++desc_idx)
+        for (uint32_t desc_idx = 0; desc_idx < superb->last_recorded_desc; ++desc_idx)
         {
             if (wfs_parse_desc(ptr, desc) == WFS_FAIL)
             {
@@ -537,7 +535,7 @@ wfs_write_file(
 
     status = WFS_OK;
     frag_cnt = desc->frag;
-    for (int frag_idx = 0; frag_idx <= frag_cnt; ++frag_idx)
+    for (uint32_t frag_idx = 0; frag_idx <= frag_cnt; ++frag_idx)
     {
         lba_cnt = index * superb->frag_size;
 
@@ -640,7 +638,7 @@ wfs_parse_options(int argc, char* argv[], wfs_options_t* out)
 
     std::memset(out, 0, sizeof(wfs_options_t));
     out->start = 0;
-    out->stop = std::time(nullptr);
+    out->stop = uint32_t(std::time(nullptr));
 
     while ((opt = getopt_long(argc, argv, "", longopt, &idx)) != -1)
     {
@@ -710,7 +708,7 @@ main(int argc, char* argv[])
             "--device=\"\\\\.\\F:\"        : source identifier\n"
             "--camera=\"1\"             : camera identifier\n"
             "--start=\"unix timestamp\" : start date (optional)\n"
-            "--start=\"unix timestamp\" : stop date (optional)\n");
+            "--stop=\"unix timestamp\"  : stop date (optional)\n");
 
         return EXIT_SUCCESS;
     }

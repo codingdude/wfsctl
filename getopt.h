@@ -1,105 +1,155 @@
-#ifndef __GETOPT_H__
-/**
- * DISCLAIMER
- * This file has no copyright assigned and is placed in the Public Domain.
- * This file is a part of the w64 mingw-runtime package.
- *
- * The w64 mingw-runtime package and its code is distributed in the hope that it
- * will be useful but WITHOUT ANY WARRANTY.  ALL WARRANTIES, EXPRESSED OR
- * IMPLIED ARE HEREBY DISCLAIMED.  This includes but is not limited to
- * warranties of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- */
+/* Declarations for getopt.
+   Copyright (C) 1989-2024 Free Software Foundation, Inc.
+   This file is part of the GNU C Library.
+   Unlike the bulk of the getopt implementation, this file is NOT part
+   of gnulib; gnulib also has a getopt.h but it is different.
 
-#define __GETOPT_H__
+   The GNU C Library is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Lesser General Public
+   License as published by the Free Software Foundation; either
+   version 2.1 of the License, or (at your option) any later version.
 
- /* All the headers include this file. */
-#include <crtdefs.h>
+   The GNU C Library is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Lesser General Public License for more details.
 
-#if defined( WINGETOPT_SHARED_LIB )
-# if defined( BUILDING_WINGETOPT_DLL )
-#  define WINGETOPT_API __declspec(dllexport)
-# else
-#  define WINGETOPT_API __declspec(dllimport)
-# endif
+   You should have received a copy of the GNU Lesser General Public
+   License along with the GNU C Library; if not, see
+   <https://www.gnu.org/licenses/>.  */
+
+#ifndef _GETOPT_H
+#define _GETOPT_H 1
+
+//#include <features.h>
+
+#if !defined __cplusplus
+#define __THROW
+#define GETOPT_API extern
 #else
-# define WINGETOPT_API
+#define __THROW throw()
+#define GETOPT_API extern "C"
 #endif
 
-#ifdef __cplusplus
-extern "C" {
+#define __nonnull(parans)
+
+   /* The type of the 'argv' argument to getopt_long and getopt_long_only
+	  is properly 'char **', since both functions may write to the array
+	  (in order to move all the options to the beginning).  However, for
+	  compatibility with old versions of LSB, glibc has to use 'char *const *'
+	  instead.  */
+#ifndef __getopt_argv_const
+# define __getopt_argv_const const
 #endif
 
-    WINGETOPT_API extern int optind;		/* index of first non-option in argv      */
-    WINGETOPT_API extern int optopt;		/* single option character, as parsed     */
-    WINGETOPT_API extern int opterr;		/* flag to enable built-in diagnostics... */
-    /* (user may set to zero, to suppress)    */
+/* For communication from 'getopt' to the caller.
+   When 'getopt' finds an option that takes an argument,
+   the argument value is returned here.
+   Also, when 'ordering' is RETURN_IN_ORDER,
+   each non-option ARGV-element is returned here.  */
 
-    WINGETOPT_API extern char* optarg;		/* pointer to argument of current option  */
+GETOPT_API char* optarg;
 
-    extern int getopt(int nargc, char* const* nargv, const char* options);
+/* Index in ARGV of the next element to be scanned.
+   This is used for communication to and from the caller
+   and for communication between successive calls to 'getopt'.
 
-#ifdef _BSD_SOURCE
-    /*
-     * BSD adds the non-standard `optreset' feature, for reinitialisation
-     * of `getopt' parsing.  We support this feature, for applications which
-     * proclaim their BSD heritage, before including this header; however,
-     * to maintain portability, developers are advised to avoid it.
-     */
-# define optreset  __mingw_optreset
-    extern int optreset;
-#endif
-#ifdef __cplusplus
-}
-#endif
-/*
- * POSIX requires the `getopt' API to be specified in `unistd.h';
- * thus, `unistd.h' includes this header.  However, we do not want
- * to expose the `getopt_long' or `getopt_long_only' APIs, when
- * included in this manner.  Thus, close the standard __GETOPT_H__
- * declarations block, and open an additional __GETOPT_LONG_H__
- * specific block, only when *not* __UNISTD_H_SOURCED__, in which
- * to declare the extended API.
- */
-#endif /* !defined(__GETOPT_H__) */
+   On entry to 'getopt', zero means this is the first call; initialize.
 
-#if !defined(__UNISTD_H_SOURCED__) && !defined(__GETOPT_LONG_H__)
-#define __GETOPT_LONG_H__
+   When 'getopt' returns -1, this is the index of the first of the
+   non-option elements that the caller should itself scan.
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+   Otherwise, 'optind' communicates from one call to the next
+   how much of ARGV has been scanned so far.  */
 
-    struct option		/* specification for a long form option...	*/
-    {
-        const char* name;		/* option name, without leading hyphens */
-        int         has_arg;		/* does it take an argument?		*/
-        int* flag;		/* where to save its status, or NULL	*/
-        int         val;		/* its associated status value		*/
-    };
+GETOPT_API int optind;
 
-    enum    		/* permitted values for its `has_arg' field...	*/
-    {
-        no_argument = 0,      	/* option never takes an argument	*/
-        required_argument,		/* option always requires an argument	*/
-        optional_argument		/* option may take an argument		*/
-    };
+/* Callers store zero here to inhibit the error message 'getopt' prints
+   for unrecognized options.  */
 
-    extern int getopt_long(int nargc, char* const* nargv, const char* options,
-        const struct option* long_options, int* idx);
-    extern int getopt_long_only(int nargc, char* const* nargv, const char* options,
-        const struct option* long_options, int* idx);
-    /*
-     * Previous MinGW implementation had...
-     */
-#ifndef HAVE_DECL_GETOPT
-     /*
-      * ...for the long form API only; keep this for compatibility.
-      */
-# define HAVE_DECL_GETOPT	1
-#endif
+GETOPT_API int opterr;
 
-#ifdef __cplusplus
-}
-#endif
+/* Set to an option character which was unrecognized.  */
 
-#endif /* !defined(__UNISTD_H_SOURCED__) && !defined(__GETOPT_LONG_H__) */
+GETOPT_API int optopt;
+
+/* Get definitions and prototypes for functions to process the
+   arguments in ARGV (ARGC of them, minus the program name) for
+   options given in OPTS.
+
+   Return the option character from OPTS just read.  Return -1 when
+   there are no more options.  For unrecognized options, or options
+   missing arguments, 'optopt' is set to the option letter, and '?' is
+   returned.
+
+   The OPTS string is a list of characters which are recognized option
+   letters, optionally followed by colons, specifying that that letter
+   takes an argument, to be placed in 'optarg'.
+
+   If a letter in OPTS is followed by two colons, its argument is
+   optional.  This behavior is specific to the GNU 'getopt'.
+
+   The argument '--' causes premature termination of argument
+   scanning, explicitly telling 'getopt' that there are no more
+   options.
+
+   If OPTS begins with '-', then non-option arguments are treated as
+   arguments to the option '\1'.  This behavior is specific to the GNU
+   'getopt'.  If OPTS begins with '+', or POSIXLY_CORRECT is set in
+   the environment, then do not permute arguments.
+
+   For standards compliance, the 'argv' argument has the type
+   char *const *, but this is inaccurate; if argument permutation is
+   enabled, the argv array (not the strings it points to) must be
+   writable.  */
+
+GETOPT_API int getopt(int ___argc, char* const* ___argv, const char* __shortopts)
+__THROW __nonnull((2, 3));
+
+/* Describe the long-named options requested by the application.
+   The LONG_OPTIONS argument to getopt_long or getopt_long_only is a vector
+   of 'struct option' terminated by an element containing a name which is
+   zero.
+
+   The field 'has_arg' is:
+   no_argument		(or 0) if the option does not take an argument,
+   required_argument	(or 1) if the option requires an argument,
+   optional_argument 	(or 2) if the option takes an optional argument.
+
+   If the field 'flag' is not NULL, it points to a variable that is set
+   to the value given in the field 'val' when the option is found, but
+   left unchanged if the option is not found.
+
+   To have a long-named option do something other than set an 'int' to
+   a compiled-in constant, such as set a value from 'optarg', set the
+   option's 'flag' field to zero and its 'val' field to a nonzero
+   value (the equivalent single-letter option character, if there is
+   one).  For long options that have a zero 'flag' field, 'getopt'
+   returns the contents of the 'val' field.  */
+
+struct option
+{
+	const char* name;
+	/* has_arg can't be an enum because some compilers complain about
+	   type mismatches in all the code that assumes it is an int.  */
+	int has_arg;
+	int* flag;
+	int val;
+};
+
+/* Names for the values of the 'has_arg' field of 'struct option'.  */
+
+#define no_argument		0
+#define required_argument	1
+#define optional_argument	2
+
+GETOPT_API int getopt_long(int ___argc, char* __getopt_argv_const* ___argv,
+	const char* __shortopts,
+	const struct option* __longopts, int* __longind)
+	__THROW __nonnull((2, 3));
+GETOPT_API int getopt_long_only(int ___argc, char* __getopt_argv_const* ___argv,
+	const char* __shortopts,
+	const struct option* __longopts, int* __longind)
+	__THROW __nonnull((2, 3));
+
+#endif /* getopt.h */

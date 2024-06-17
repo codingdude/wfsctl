@@ -129,7 +129,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="getopt.c" />
+    <ClCompile Include="getopt.cpp" />
     <ClCompile Include="wfsctl.cpp" />
   </ItemGroup>
   <ItemGroup>

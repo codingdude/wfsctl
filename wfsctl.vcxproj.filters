@@ -18,7 +18,7 @@
     <ClCompile Include="wfsctl.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="getopt.c">
+    <ClCompile Include="getopt.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
