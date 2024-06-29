@@ -21,10 +21,16 @@
     <ClCompile Include="getopt.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="parse-datetime.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="getopt.h">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="parse-datetime.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -11,6 +11,7 @@
 #include <ctime>
 
 #include "getopt.h"
+#include "parse-datetime.h"
 
 #define WFS_MAGIC        0x342E30534657
 #define WFS_SIGNATURE    0x4D58
@@ -165,7 +166,6 @@ wfs_parse_ts(uint8_t*& ptr)
     ptr += sizeof(uint32_t);
 
     std::tm gmt{};
-    std::time_t t;
 
     gmt.tm_year = ((val & 0xFC000000) >> 26) + 100;
     gmt.tm_mon = ((val & 0x03C00000) >> 22) - 1;
@@ -174,8 +174,7 @@ wfs_parse_ts(uint8_t*& ptr)
     gmt.tm_min = ((val & 0x00000FC0) >> 6);
     gmt.tm_sec = (val & 0x0000001F);
 
-    t = std::mktime(&gmt);
-    return std::mktime(std::gmtime(&t));
+    return std::mktime(&gmt);
 }
 
 static int
@@ -620,6 +619,24 @@ static int wfs_write_files(
         wfs_write_file);
 }
 
+static std::time_t
+wfs_parse_unix_time(const char* timestr)
+{
+    struct timespec t;
+
+    if (!timestr || !timestr[0])
+    {
+        return 0;
+    }
+
+    if (!parse_datetime(&t, timestr, nullptr))
+    {
+        return 0;
+    }
+
+    return t.tv_sec;
+}
+
 static int
 wfs_parse_options(int argc, char* argv[], wfs_options_t* out)
 {
@@ -650,11 +667,19 @@ wfs_parse_options(int argc, char* argv[], wfs_options_t* out)
             break;
         case 2:
             out->opts |= WFS_START_ARG;
-            out->start = std::atoi(optarg);
+            out->start = wfs_parse_unix_time(optarg);
+            if (out->start == 0)
+            {
+                return WFS_FAIL;
+            }
             break;
         case 3:
             out->opts |= WFS_STOP_ARG;
-            out->stop = std::atoi(optarg);
+            out->stop = wfs_parse_unix_time(optarg);
+            if (out->stop == 0)
+            {
+                return WFS_FAIL;
+            }
             break;
         case 4:
             out->opts |= WFS_CAM_ARG;
@@ -703,19 +728,19 @@ main(int argc, char* argv[])
     if (wfs_parse_options(argc, argv, &opts) != WFS_OK)
     {
         std::puts("HELP:\n"
-            "--list                   : list video fragments\n"
-            "--extract                : extract video fragments\n"
-            "--device=\"\\\\.\\F:\"        : source identifier\n"
-            "--camera=\"1\"             : camera identifier\n"
-            "--start=\"unix timestamp\" : start date (optional)\n"
-            "--stop=\"unix timestamp\"  : stop date (optional)\n");
+            "--list                     : list video fragments\n"
+            "--extract                  : extract video fragments\n"
+            "--device=\"\\\\.\\F:\"          : source identifier\n"
+            "--camera=\"1\"               : camera identifier\n"
+            "--start=\"YYYY/MM/DD HH:MM\" : start date (optional)\n"
+            "--stop=\"YYYY/MM/DD HH:MM\"  : stop date (optional)\n");
 
         return EXIT_SUCCESS;
     }
 
     if (wfs_device_open(opts.dev) != WFS_OK)
     {
-        std::printf("can't open the device '%s'", optarg);
+        std::printf("can't open the device '%s'", opts.dev);
         return EXIT_FAILURE;
     }
 

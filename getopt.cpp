@@ -826,7 +826,7 @@ _getopt_internal(int argc, char** argv, const char* optstring,
 
 GETOPT_API int
 getopt_long(int argc, char* __getopt_argv_const* argv, const char* options,
-	const struct option* long_options, int* opt_index)
+	const struct option* long_options, int* opt_index) __THROW __nonnull((2, 3))
 {
 	return _getopt_internal(argc, (char**)argv, options, long_options,
 		opt_index, 0, 0);
@@ -849,7 +849,7 @@ _getopt_long_r(int argc, char** argv, const char* options,
 GETOPT_API int
 getopt_long_only(int argc, char* __getopt_argv_const* argv,
 	const char* options,
-	const struct option* long_options, int* opt_index)
+	const struct option* long_options, int* opt_index) __THROW __nonnull((2, 3))
 {
 	return _getopt_internal(argc, (char**)argv, options, long_options,
 		opt_index, 1, 0);
