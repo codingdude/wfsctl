@@ -299,11 +299,17 @@ bool mul_overflow(unsigned long long int a, unsigned long long int b, unsigned l
 #error "Unsupported target platform!"
 #endif
 
-#endif
-
 #define ckd_add(r, a, b) (add_overflow(a, b, r))
 #define ckd_sub(r, a, b) (sub_overflow(a, b, r))
 #define ckd_mul(r, a, b) (mul_overflow(a, b, r))
+
+#else
+
+# define ckd_add(r, a, b) __builtin_add_overflow(a, b, r)
+# define ckd_sub(r, a, b) __builtin_sub_overflow(a, b, r)
+# define ckd_mul(r, a, b) __builtin_mul_overflow(a, b, r)
+
+#endif
 
 #include <inttypes.h>
 #include <ctype.h>
@@ -428,7 +434,7 @@ typedef struct
 #if HAVE_COMPOUND_LITERALS
 # define RELATIVE_TIME_0 ((relative_time) { 0, 0, 0, 0, 0, 0, 0 })
 #else
-static relative_time const RELATIVE_TIME_0;
+static relative_time const RELATIVE_TIME_0{};
 #endif
 
 /* Information passed to and from the parser.  */
@@ -3404,7 +3410,11 @@ parse_datetime_body (struct timespec *result, char const *p,
   struct timespec gettime_buffer;
   if (! now)
     {
+#if defined(_WIN32) && !defined(__MINGW32__)
       timespec_get(&gettime_buffer, TIME_UTC);
+#else
+      clock_gettime(CLOCK_REALTIME, &gettime_buffer);
+#endif
       now = &gettime_buffer;
     }
 
