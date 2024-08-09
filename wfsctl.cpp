@@ -412,7 +412,7 @@ wfs_enumerate_index_table(
     uint16_t camera_id,
     wfs_enum_callback callback)
 {
-    const int lba_cnt = (superb->last_recorded_desc * WFS_DESC_SIZE +
+    const int lba_cnt = (superb->total_frag_cnt * WFS_DESC_SIZE +
                          superb->logical_block_size - 1) / superb->logical_block_size;
 
     int lba, status;
@@ -430,7 +430,7 @@ wfs_enumerate_index_table(
     {
         status = WFS_OK;
         lba += lba_cnt; ptr = region;
-        for (uint32_t desc_idx = 0; desc_idx < superb->last_recorded_desc; ++desc_idx)
+        for (uint32_t desc_idx = 0; desc_idx < superb->total_frag_cnt; ++desc_idx)
         {
             if (wfs_parse_desc(ptr, desc) == WFS_FAIL)
             {
