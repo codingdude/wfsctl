@@ -92,13 +92,13 @@ typedef struct wfs_options_s
     uint32_t stop;
 } wfs_options_t;
 
-typedef int (*wfs_enum_callback)(const wfs_superblock_t* superb, wfs_descriptor_t* desc, uint32_t index, uint8_t* indextab);
+typedef int (*wfs_enum_callback)(const wfs_superblock_t* superb, wfs_descriptor_t* desc, uint8_t* indextab);
 
 static HANDLE device;
 
 static inline bool wfs_main_descriptor(uint16_t attr);
 static inline uint16_t wfs_camera_hash(uint8_t camera_id);
-static inline uint64_t wfs_lba_offset(uint32_t lba, uint32_t lbs);
+static inline uint64_t wfs_lba_offset(uint64_t lba, uint32_t lbs);
 static inline uint8_t* wfs_skip(uint8_t* ptr, int nbytes);
 static inline uint16_t wfs_parse_u16(uint8_t*& ptr);
 static inline uint32_t wfs_parse_u32(uint8_t*& ptr);
@@ -107,15 +107,19 @@ static int wfs_parse_superblock(wfs_superblock_t& superb);
 static int wfs_parse_desc(uint8_t* ptr, wfs_descriptor_t& desc);
 static int wfs_device_open(const char* devid);
 static void wfs_device_close(void);
-static uint8_t* wfs_get_memory_region(int lba, int lbs, int count);
+static uint8_t* wfs_get_memory_region(uint64_t lba, uint32_t lbs, int count);
 static void wfs_free_memory_region(uint8_t* region);
 static int wfs_validate_signature(const wfs_superblock_t* superb);
 static int wfs_enumerate_index_table(const wfs_superblock_t* superb,
     std::time_t start_time, std::time_t end_time,
     uint16_t camera_id, wfs_enum_callback callback);
 static int wfs_print_descriptor(const wfs_superblock_t* superb,
-    wfs_descriptor_t* desc, uint32_t index, uint8_t* indextab);
+    wfs_descriptor_t* desc, uint8_t* indextab);
 static int wfs_index_table_list(const wfs_superblock_t* superb,
+    std::time_t start_time, std::time_t end_time, uint16_t camera_id);
+static int wfs_write_file(const wfs_superblock_t* superb,
+    wfs_descriptor_t* desc, uint8_t* indextab);
+static int wfs_write_files(const wfs_superblock_t* superb,
     std::time_t start_time, std::time_t end_time, uint16_t camera_id);
 
 static inline bool
@@ -132,9 +136,9 @@ wfs_camera_hash(uint8_t camera_id)
 }
 
 static inline uint64_t
-wfs_lba_offset(uint32_t lba, uint32_t lbs)
+wfs_lba_offset(uint64_t lba, uint32_t lbs)
 {
-    return uint64_t(lba) * lbs;
+    return lba * lbs;
 }
 
 static inline uint8_t*
@@ -233,17 +237,21 @@ wfs_parse_desc(uint8_t* ptr, wfs_descriptor_t& desc)
 }
 
 static const char*
-wfs_make_filename(std::time_t time)
+wfs_make_filename(std::time_t start, std::time_t stop)
 {
-    std::tm* gmt;
+    std::tm t1, t2;
     static char buf[1024];
 
     std::memset(buf, 0, 1024);
-    if (gmt = std::gmtime(&time))
+    if (std::gmtime(&start) && std::gmtime(&stop))
     {
-        std::snprintf(buf, 1024, "%02d-%02d-%04d-%02d-%02d-%02d.h265",
-            gmt->tm_mday, gmt->tm_mon + 1, gmt->tm_year + 1900,
-            gmt->tm_hour, gmt->tm_min, gmt->tm_sec);
+        t1 = *std::gmtime(&start);
+        t2 = *std::gmtime(&stop);
+        std::snprintf(buf, 1024, "%02d-%02d-%04d-%02d-%02d-%02d.%02d-%02d-%04d-%02d-%02d-%02d.h265",
+            t1.tm_mday, t1.tm_mon + 1, t1.tm_year + 1900,
+            t1.tm_hour, t1.tm_min, t1.tm_sec,
+            t2.tm_mday, t2.tm_mon + 1, t2.tm_year + 1900,
+            t2.tm_hour, t2.tm_min, t2.tm_sec);
     }
 
     return buf;
@@ -294,7 +302,7 @@ wfs_device_close(void)
 }
 
 static uint8_t*
-wfs_get_memory_region(int lba, int lbs, int count)
+wfs_get_memory_region(uint64_t lba, uint32_t lbs, int count)
 {
     LARGE_INTEGER offset;
     LONG low, high;
@@ -415,7 +423,8 @@ wfs_enumerate_index_table(
     const int lba_cnt = (superb->total_frag_cnt * WFS_DESC_SIZE +
                          superb->logical_block_size - 1) / superb->logical_block_size;
 
-    int lba, status;
+    int status;
+    uint32_t lba, last_idx;
     uint8_t *region, *ptr;
     wfs_descriptor_t desc;
 
@@ -430,7 +439,9 @@ wfs_enumerate_index_table(
     {
         status = WFS_OK;
         lba += lba_cnt; ptr = region;
-        for (uint32_t desc_idx = 0; desc_idx < superb->total_frag_cnt; ++desc_idx)
+        last_idx = (superb->total_frag_cnt != 0)
+            ? superb->total_frag_cnt : superb->last_recorded_desc;
+        for (uint32_t desc_idx = 0; desc_idx < last_idx; ++desc_idx)
         {
             if (wfs_parse_desc(ptr, desc) == WFS_FAIL)
             {
@@ -439,7 +450,7 @@ wfs_enumerate_index_table(
             }
 
             ptr += WFS_DESC_SIZE;
-            if (desc.chan != 1)
+            if (desc.chan != 0 && desc.chan != 1)
             {
                 continue;
             }
@@ -447,9 +458,10 @@ wfs_enumerate_index_table(
             if (wfs_main_descriptor(desc.attr) &&
                 start_time <= desc.start &&
                 end_time >= desc.stop &&
-                camera_id == desc.cam)
+                camera_id == desc.cam &&
+                start_time < end_time)
             {
-                if (callback(superb , &desc, desc_idx, region))
+                if (callback(superb , &desc, region))
                 {
                     status = WFS_FAIL;
                     break;
@@ -467,7 +479,6 @@ static int
 wfs_print_descriptor(
     const wfs_superblock_t* superb,
     wfs_descriptor_t* desc,
-    uint32_t index,
     uint8_t* indextab)
 {
     std::tm start, stop, *ptm;
@@ -502,17 +513,18 @@ static int
 wfs_write_file(
     const wfs_superblock_t* superb,
     wfs_descriptor_t* desc,
-    uint32_t index,
     uint8_t* indextab)
 {
-    uint32_t frag_cnt, lba_cnt;
+    uint32_t frag_cnt;
+    uint32_t index;
+    uint64_t lba_cnt;
     uint8_t* data;
     int status;
     const char* filename;
     HANDLE hfile;
     DWORD size, nbytes;
 
-    filename = wfs_make_filename(desc->start);
+    filename = wfs_make_filename(desc->start, desc->stop);
     if (filename == 0 || filename[0] == 0)
     {
         return WFS_FAIL;
@@ -534,9 +546,10 @@ wfs_write_file(
 
     status = WFS_OK;
     frag_cnt = desc->frag;
+    index = desc->main;
     for (uint32_t frag_idx = 0; frag_idx <= frag_cnt; ++frag_idx)
     {
-        lba_cnt = index * superb->frag_size;
+        lba_cnt = static_cast<uint64_t>(index) * superb->frag_size;
 
         if (frag_idx == frag_cnt && desc->size != 0)
         {
