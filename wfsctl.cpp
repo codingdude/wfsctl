@@ -97,7 +97,7 @@ typedef int (*wfs_enum_callback)(const wfs_superblock_t* superb, wfs_descriptor_
 static HANDLE device;
 
 static inline bool wfs_main_descriptor(uint16_t attr);
-static inline uint16_t wfs_camera_hash(uint8_t camera_id);
+static inline uint8_t wfs_camera_hash(uint8_t camera_id);
 static inline uint64_t wfs_lba_offset(uint64_t lba, uint32_t lbs);
 static inline uint8_t* wfs_skip(uint8_t* ptr, int nbytes);
 static inline uint16_t wfs_parse_u16(uint8_t*& ptr);
@@ -129,10 +129,10 @@ wfs_main_descriptor(uint16_t attr)
            attr == FATTR_MAIN2;
 }
 
-static inline uint16_t
+static inline uint8_t
 wfs_camera_hash(uint8_t camera_id)
 {
-    return (2 + (camera_id - 1) * 4) << 8;
+    return 2 + (camera_id - 1) * 4;
 }
 
 static inline uint64_t
@@ -145,6 +145,14 @@ static inline uint8_t*
 wfs_skip(uint8_t* ptr, int nbytes)
 {
     return ptr + nbytes;
+}
+
+static inline uint8_t
+wfs_parse_u8(uint8_t*& ptr)
+{
+    const uint8_t val = *reinterpret_cast<uint8_t*>(ptr);
+    ptr += sizeof(uint8_t);
+    return val;
 }
 
 static inline uint16_t
@@ -231,7 +239,8 @@ wfs_parse_desc(uint8_t* ptr, wfs_descriptor_t& desc)
     desc.size = wfs_parse_u16(ptr);
     desc.main = wfs_parse_u32(ptr);
     desc.chan = wfs_parse_u16(ptr);
-    desc.cam = wfs_parse_u16(ptr);
+    ptr = wfs_skip(ptr, 1);
+    desc.cam = wfs_parse_u8(ptr);
 
     return WFS_OK;
 }
